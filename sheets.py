@@ -63,24 +63,25 @@ def gerar_relatorio():
     print("🔍 Gerando relatório...")
     client = conectar_sheets()
     spreadsheet_id = os.getenv("GOOGLE_SHEETS_KEY")
-    sheet = client.open_by_key(spreadsheet_id).sheet1  # sheet1 é a primeira aba
-
-    dados = sheet.get_all_records()
-    print("📊 Relatório de leads:", dados)
+    sheet = client.open_by_key(spreadsheet_id).worksheet('Sheet1')
+    
+    # Ler todos os registros
+    records = sheet.get_all_records()
+    print(f"Total de registros encontrados: {len(records)}")
+    for record in records:
+        print(record)
 
 def iniciar_prospeccao():
     """
-    Exemplo de função para iniciar a prospecção.
-    Aqui você poderia simular a coleta de dados e salvar no Google Sheets.
+    Exemplo de função para iniciar uma prospecção.
+    Aqui você poderia adicionar lógica para buscar novos leads ou enviar mensagens.
     """
     print("🚀 Iniciando prospecção...")
-    # Simulando alguns leads fictícios
+    # Simulação de operação
+    # Exemplo: buscar novos dados de API ou banco de dados
     novos_leads = [
-        {"Nome": "Cliente Exemplo", "Email": "cliente@exemplo.com", "Telefone": "11999999999"},
-        {"Nome": "Outro Cliente", "Email": "outro@cliente.com", "Telefone": "11888888888"}
+        {"Nome": "João Silva", "Email": "joao@example.com", "Telefone": "11999999999"},
+        {"Nome": "Maria Souza", "Email": "maria@example.com", "Telefone": "11988888888"}
     ]
-
     spreadsheet_id = os.getenv("GOOGLE_SHEETS_KEY")
     salvar_leads(novos_leads, spreadsheet_id)
-    print("✅ Novos leads salvos com sucesso!")
-
