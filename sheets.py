@@ -2,159 +2,130 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from config import GOOGLE_CREDENTIALS_JSON, GOOGLE_SHEETS_KEY
-
+from collections import Counter
 import json
-import os
 
-# Configuração inicial para autenticação
+# Autenticação Google Sheets
 def autenticar_google_sheets():
-    # Carrega as credenciais do JSON armazenado na variável de ambiente
     creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON.replace("'", '"'))
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(credentials)
     return client
 
-# Função para garantir que as abas existam
+# Garantir abas necessárias
 def garantir_abas(sheet):
-    abas = [worksheet.title for worksheet in sheet.worksheets()]
+    abas = [ws.title for ws in sheet.worksheets()]
     if "Base de Dados" not in abas:
         sheet.add_worksheet(title="Base de Dados", rows="1000", cols="20")
     if "Dashboard" not in abas:
         sheet.add_worksheet(title="Dashboard", rows="1000", cols="20")
 
-# Função de formatação bonita na planilha
+# Formatação bonita da planilha
 def formatar_planilha(sheet):
     try:
         worksheet = sheet.worksheet("Base de Dados")
-        # Adiciona cabeçalho, se não existir
-        if worksheet.row_count < 1 or not worksheet.row_values(1):
-            worksheet.append_row(["Data", "Nome", "Contato", "Status", "Observações"])
+        header = ["Data", "Fonte", "Empresa", "Telefone", "Email", "Website", "Observações"]
+        linhas_existentes = worksheet.get_all_values()
+
+        # Se estiver vazio, adiciona cabeçalho
+        if not linhas_existentes:
+            worksheet.append_row(header)
+
+        # Formatação visual (cor de fundo nas colunas)
+        formatacoes = [
+            {"range": "A:A", "color": (211, 211, 211)},  # Cinza claro - Data
+            {"range": "B:B", "color": (135, 206, 250)},  # Azul claro - Fonte
+            {"range": "C:C", "color": (173, 216, 230)},  # Azul claro - Empresa
+            {"range": "D:D", "color": (144, 238, 144)},  # Verde claro - Telefone
+            {"range": "E:E", "color": (144, 238, 144)},  # Verde claro - Email
+            {"range": "F:F", "color": (255, 228, 181)},  # Amarelo claro - Website
+            {"range": "G:G", "color": (255, 182, 193)},  # Rosa claro - Observações
+        ]
+
+        from gspread_formatting import CellFormat, Color, format_cell_range
+
+        for item in formatacoes:
+            cell_format = CellFormat(
+                backgroundColor=Color(*(c / 255 for c in item["color"]))
+            )
+            format_cell_range(worksheet, item["range"], cell_format)
+
     except Exception as e:
         print(f"Erro ao formatar planilha: {e}")
 
-# Função para inserir dados novos
+# Inserir dados novos
 def inserir_dado(sheet, dados):
     worksheet = sheet.worksheet("Base de Dados")
     hoje = datetime.now().strftime("%Y-%m-%d")
     linha = [hoje] + dados
     worksheet.append_row(linha)
+    atualizar_dashboard(sheet)
 
-# Função de criação de relatório
+# Atualizar dashboard visual
+def atualizar_dashboard(sheet):
+    try:
+        worksheet = sheet.worksheet("Base de Dados")
+        dashboard = sheet.worksheet("Dashboard")
+
+        registros = worksheet.get_all_values()
+        if len(registros) <= 1:
+            dashboard.clear()
+            dashboard.update('A1', [["Ainda não há dados suficientes para o Dashboard 🚀"]])
+            return
+
+        headers = registros[0]
+        dados = registros[1:]
+
+        total_leads = len(dados)
+        fontes = [linha[1] for linha in dados]
+        contagem_fontes = Counter(fontes)
+
+        dashboard.clear()
+
+        dashboard.update('A1', [["📊 Dashboard de Leads"]])
+        dashboard.update('A3', [["Total de Leads", total_leads]])
+
+        dashboard.update('A5', [["Leads por Fonte"]])
+        dashboard.update('A6', [["Fonte", "Quantidade"]])
+        for i, (fonte, quantidade) in enumerate(contagem_fontes.items(), start=7):
+            dashboard.update(f"A{i}:B{i}", [[fonte, quantidade]])
+
+        dashboard.update('D5', [["Evolução Diária"]])
+        datas = [linha[0] for linha in dados]
+        contagem_datas = Counter(datas)
+        dashboard.update('D6', [["Data", "Quantidade"]])
+        for i, (data, quantidade) in enumerate(sorted(contagem_datas.items()), start=7):
+            dashboard.update(f"D{i}:E{i}", [[data, quantidade]])
+
+        dashboard.update('G5', [["Gráfico de Pizza (manual)"]])
+        dashboard.update('G6', [["Fonte", "Quantidade"]])
+        for i, (fonte, quantidade) in enumerate(contagem_fontes.items(), start=7):
+            dashboard.update(f"G{i}:H{i}", [[fonte, quantidade]])
+
+    except Exception as e:
+        print(f"Erro ao atualizar Dashboard: {e}")
+
+# Gerar relatório básico (usado no /relatorio)
 def gerar_relatorio():
     try:
         client = autenticar_google_sheets()
         sheet = client.open_by_key(GOOGLE_SHEETS_KEY)
         worksheet = sheet.worksheet("Base de Dados")
 
-        # Coleta dados
         registros = worksheet.get_all_values()
-
         if len(registros) <= 1:
             return "Ainda não há dados suficientes para gerar um relatório. 🚀"
 
-        total_registros = len(registros) - 1  # Subtrai cabeçalho
+        total_registros = len(registros) - 1  # Desconta o cabeçalho
+        fontes = [linha[1] for linha in registros[1:]]
+        contagem_fontes = Counter(fontes)
 
-        # Exemplo simples de contagem por status
-        status_col = [row[3] for row in registros[1:]]  # Coluna 'Status'
-        status_contagem = {}
-        for status in status_col:
-            status_contagem[status] = status_contagem.get(status, 0) + 1
+        relatorio = f"📊 Relatório Atualizado\n\nTotal de Leads: {total_registros}\n\nLeads por Fonte:\n"
+        for fonte, quantidade in contagem_fontes.items():
+            relatorio += f"- {fonte}: {quantidade}\n"
 
-        relatorio = [f"📊 Relatório Atualizado ({datetime.now().strftime('%d/%m/%Y')}):", f"• Total de registros: {total_registros}"]
-
-        for status, contagem in status_contagem.items():
-            relatorio.append(f"• {status}: {contagem}")
-
-        # Atualiza Dashboard
-        atualizar_dashboard(sheet, status_contagem, total_registros)
-
-        return "\n".join(relatorio)
+        return relatorio
 
     except Exception as e:
-        print(f"Erro ao gerar relatório: {e}")
-        return "❌ Ocorreu um erro ao gerar o relatório."
-
-# Atualiza aba de Dashboard com dados do relatório
-def atualizar_dashboard(sheet, status_contagem, total):
-    try:
-        dashboard = sheet.worksheet("Dashboard")
-        dashboard.clear()  # Limpa antes de atualizar
-
-        dashboard.append_row(["Dashboard Visual"])
-        dashboard.append_row(["Total de Registros", total])
-        dashboard.append_row([""])
-        dashboard.append_row(["Status", "Contagem"])
-
-        for status, contagem in status_contagem.items():
-            dashboard.append_row([status, contagem])
-
-    except Exception as e:
-        print(f"Erro ao atualizar dashboard: {e}")
-
-# Função de prospecção automática (exemplo inicial)
-def iniciar_prospeccao():
-    try:
-        client = autenticar_google_sheets()
-        sheet = client.open_by_key(GOOGLE_SHEETS_KEY)
-        garantir_abas(sheet)
-        formatar_planilha(sheet)
-
-        # Exemplo de prospecção inicial (entrada fictícia para teste)
-        dados_teste = ["Contato de Teste", "teste@example.com", "Novo", "Nenhuma observação"]
-        inserir_dado(sheet, dados_teste)
-
-        return "🚀 Prospecção automatizada concluída e registrada na planilha!"
-
-    except Exception as e:
-        print(f"Erro na prospecção automatizada: {e}")
-        return "❌ Erro na prospecção automatizada."
-
-def salvar_leads(leads):
-    creds = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_JSON)
-    client = gspread.authorize(creds)
-
-    try:
-        sheet = client.open_by_key(GOOGLE_SHEETS_KEY)
-    except Exception:
-        sheet = client.create("Leads Automation")
-    
-    # Sheet Leads
-    try:
-        leads_sheet = sheet.worksheet("Leads")
-    except:
-        leads_sheet = sheet.add_worksheet(title="Leads", rows="1000", cols="20")
-    
-    data = []
-    hoje = datetime.now().strftime("%d/%m/%Y")
-    for lead in leads:
-        data.append([hoje, lead['nome'], lead['telefone'], lead['email'], lead['origem']])
-    
-    leads_sheet.append_rows(data)
-
-    # Estética automática
-    format_leads_sheet(leads_sheet)
-
-    # Dashboard
-    try:
-        dashboard_sheet = sheet.worksheet("Dashboard")
-    except:
-        dashboard_sheet = sheet.add_worksheet(title="Dashboard", rows="20", cols="10")
-    
-    dashboard_sheet.update('A1', 'Relatório de Leads')
-    dashboard_sheet.update('A3', 'Total de Leads:')
-    dashboard_sheet.update('B3', f"=COUNTA(Leads!B:B)-1")
-
-def format_leads_sheet(sheet):
-    set_frozen(sheet, rows=1)
-    fmt = cellFormat(
-        backgroundColor=color(0.9, 0.9, 0.9),
-        textFormat=textFormat(bold=True, foregroundColor=color(0, 0, 0)),
-        horizontalAlignment='CENTER'
-    )
-    format_cell_range(sheet, 'A1:D1', fmt)
-    sheet.update('A1', 'Data')
-    sheet.update('B1', 'Nome')
-    sheet.update('C1', 'Telefone')
-    sheet.update('C1', 'E-mail')
-    sheet.update('D1', 'Origem')
+        return f"Erro ao gerar relatório: {e}"
