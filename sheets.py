@@ -128,7 +128,7 @@ def salvar_leads(leads):
     data = []
     hoje = datetime.now().strftime("%d/%m/%Y")
     for lead in leads:
-        data.append([hoje, lead['nome'], lead['telefone'], lead['origem']])
+        data.append([hoje, lead['nome'], lead['telefone'], lead['email'], lead['origem']])
     
     leads_sheet.append_rows(data)
 
@@ -156,4 +156,5 @@ def format_leads_sheet(sheet):
     sheet.update('A1', 'Data')
     sheet.update('B1', 'Nome')
     sheet.update('C1', 'Telefone')
+    sheet.update('C1', 'E-mail')
     sheet.update('D1', 'Origem')
