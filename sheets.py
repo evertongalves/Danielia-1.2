@@ -111,16 +111,49 @@ def iniciar_prospeccao():
         return "❌ Erro na prospecção automatizada."
 
 def salvar_leads(leads):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(GOOGLE_CREDENTIALS_JSON), scope)
+    creds = Credentials.from_service_account_file(GOOGLE_CREDENTIALS_JSON)
     client = gspread.authorize(creds)
 
     try:
         sheet = client.open_by_key(GOOGLE_SHEETS_KEY)
-        worksheet = sheet.worksheet("Leads")
-    except gspread.exceptions.WorksheetNotFound:
-        worksheet = sheet.add_worksheet(title="Leads", rows="100", cols="10")
-        worksheet.append_row(["Fonte", "Nome", "Telefone", "Perfil"])
-
+    except Exception:
+        sheet = client.create("Leads Automation")
+    
+    # Sheet Leads
+    try:
+        leads_sheet = sheet.worksheet("Leads")
+    except:
+        leads_sheet = sheet.add_worksheet(title="Leads", rows="1000", cols="20")
+    
+    data = []
+    hoje = datetime.now().strftime("%d/%m/%Y")
     for lead in leads:
-        worksheet.append_row([lead["Fonte"], lead["Nome"], lead["Telefone"], lead["Perfil"]])
+        data.append([hoje, lead['nome'], lead['telefone'], lead['origem']])
+    
+    leads_sheet.append_rows(data)
+
+    # Estética automática
+    format_leads_sheet(leads_sheet)
+
+    # Dashboard
+    try:
+        dashboard_sheet = sheet.worksheet("Dashboard")
+    except:
+        dashboard_sheet = sheet.add_worksheet(title="Dashboard", rows="20", cols="10")
+    
+    dashboard_sheet.update('A1', 'Relatório de Leads')
+    dashboard_sheet.update('A3', 'Total de Leads:')
+    dashboard_sheet.update('B3', f"=COUNTA(Leads!B:B)-1")
+
+def format_leads_sheet(sheet):
+    set_frozen(sheet, rows=1)
+    fmt = cellFormat(
+        backgroundColor=color(0.9, 0.9, 0.9),
+        textFormat=textFormat(bold=True, foregroundColor=color(0, 0, 0)),
+        horizontalAlignment='CENTER'
+    )
+    format_cell_range(sheet, 'A1:D1', fmt)
+    sheet.update('A1', 'Data')
+    sheet.update('B1', 'Nome')
+    sheet.update('C1', 'Telefone')
+    sheet.update('D1', 'Origem')
