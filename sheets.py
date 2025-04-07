@@ -54,3 +54,33 @@ def salvar_leads(leads, spreadsheet_id, sheet_name='Sheet1'):
     # Adicionar linhas na planilha
     sheet.append_rows(rows, value_input_option='USER_ENTERED')
     print(f"{len(rows)} leads salvos com sucesso no Google Sheets!")
+
+def gerar_relatorio():
+    """
+    Exemplo de função para gerar relatório.
+    Aqui você pode ler dados da planilha e imprimir ou processar como quiser.
+    """
+    print("🔍 Gerando relatório...")
+    client = conectar_sheets()
+    spreadsheet_id = os.getenv("GOOGLE_SHEETS_KEY")
+    sheet = client.open_by_key(spreadsheet_id).sheet1  # sheet1 é a primeira aba
+
+    dados = sheet.get_all_records()
+    print("📊 Relatório de leads:", dados)
+
+def iniciar_prospeccao():
+    """
+    Exemplo de função para iniciar a prospecção.
+    Aqui você poderia simular a coleta de dados e salvar no Google Sheets.
+    """
+    print("🚀 Iniciando prospecção...")
+    # Simulando alguns leads fictícios
+    novos_leads = [
+        {"Nome": "Cliente Exemplo", "Email": "cliente@exemplo.com", "Telefone": "11999999999"},
+        {"Nome": "Outro Cliente", "Email": "outro@cliente.com", "Telefone": "11888888888"}
+    ]
+
+    spreadsheet_id = os.getenv("GOOGLE_SHEETS_KEY")
+    salvar_leads(novos_leads, spreadsheet_id)
+    print("✅ Novos leads salvos com sucesso!")
+
