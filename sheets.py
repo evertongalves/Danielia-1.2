@@ -110,3 +110,17 @@ def iniciar_prospeccao():
         print(f"Erro na prospecção automatizada: {e}")
         return "❌ Erro na prospecção automatizada."
 
+def salvar_leads(leads):
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(json.loads(GOOGLE_CREDENTIALS_JSON), scope)
+    client = gspread.authorize(creds)
+
+    try:
+        sheet = client.open_by_key(GOOGLE_SHEETS_KEY)
+        worksheet = sheet.worksheet("Leads")
+    except gspread.exceptions.WorksheetNotFound:
+        worksheet = sheet.add_worksheet(title="Leads", rows="100", cols="10")
+        worksheet.append_row(["Fonte", "Nome", "Telefone", "Perfil"])
+
+    for lead in leads:
+        worksheet.append_row([lead["Fonte"], lead["Nome"], lead["Telefone"], lead["Perfil"]])
