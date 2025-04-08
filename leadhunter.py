@@ -37,7 +37,7 @@ def limpar_duplicados(leads_novos, leads_existentes):
     return leads_filtrados
 
 async def leadhunter_handler(chat_id, termos_busca):
-    start_time = time.time()  # ⏱️ Timer start
+    start_time = time.time()
 
     await bot.send_message(chat_id=chat_id, text="🚀 Iniciando busca de leads! Isso pode levar alguns minutos...")
 
@@ -47,26 +47,30 @@ async def leadhunter_handler(chat_id, termos_busca):
     fontes_processadas = 0
 
     # Mensagem de progresso inicial
-    progresso_msg = await bot.send_message(chat_id=chat_id, text=f"⏳ Progresso: 0/{total_fontes} fontes processadas...")
+    progresso_msg = await bot.send_message(chat_id=chat_id, text=f"⏳ Progresso: {fontes_processadas}/{total_fontes} fontes processadas...")
 
-    fontes = [
-        ("Google Maps", search_google_maps),
-        ("LinkedIn", search_linkedin),
-        ("Instagram", search_instagram),
-        ("Facebook", search_facebook),
-        ("Google Search", search_google_search),
-        ("Yelp", search_yelp),
-        ("Yellow Pages", search_yellow_pages),
-        ("Foursquare", search_foursquare),
+    # Mapeamento das funções e nomes
+    scrapers = [
+        (search_google_maps, "Google Maps"),
+        (search_linkedin, "LinkedIn"),
+        (search_instagram, "Instagram"),
+        (search_facebook, "Facebook"),
+        (search_google_search, "Google Search"),
+        (search_yelp, "Yelp"),
+        (search_yellow_pages, "Yellow Pages"),
+        (search_foursquare, "Foursquare"),
     ]
 
-    async def run_scraper(scraper_func, nome_fonte):
-        nonlocal fontes_processadas
-        await bot.send_message(chat_id=chat_id, text=f"🔍 Buscando leads no {nome_fonte}...")
+    # Carrega leads existentes
+    leads_existentes = carregar_leads_existentes()
 
+    # Função para rodar cada scraper individualmente
+    async def run_scraper(scraper_func, nome_fonte):
+        nonlocal fontes_processadas, leads_encontrados
+
+        await bot.send_message(chat_id=chat_id, text=f"🔍 Buscando leads no {nome_fonte}...")
         try:
             fonte_leads = await asyncio.to_thread(scraper_func, termos_busca)
-            # Filtra leads válidos
             fonte_leads = [lead for lead in fonte_leads if lead.get('email') or lead.get('telefone')]
 
             if fonte_leads:
@@ -83,42 +87,37 @@ async def leadhunter_handler(chat_id, termos_busca):
                 await bot.send_message(chat_id=chat_id, text=f"⚠️ {nome_fonte}: Nenhum lead encontrado.")
 
         except Exception as e:
-            await bot.send_message(chat_id=chat_id, text=f"❌ Erro ao buscar no {nome_fonte}: {e}")
+            await bot.send_message(chat_id=chat_id, text=f"❌ Erro ao buscar no {nome_fonte}: {str(e)}")
 
         fontes_processadas += 1
         await progresso_msg.edit_text(f"⏳ Progresso: {fontes_processadas}/{total_fontes} fontes processadas...")
 
-    # Executa todas as fontes em sequência
-    for nome_fonte, scraper_func in fontes:
-        await run_scraper(scraper_func, nome_fonte)
+    # Executa todas as fontes em paralelo
+    await asyncio.gather(*(run_scraper(scraper_func, nome_fonte) for scraper_func, nome_fonte in scrapers))
 
     # Remove duplicados
-    leads_existentes = carregar_leads_existentes()
-    leads_unicos = limpar_duplicados(leads_encontrados, leads_existentes)
+    leads_filtrados = limpar_duplicados(leads_encontrados, leads_existentes)
 
-    # Salva no Google Sheets
-    if leads_unicos:
-        salvar_leads(leads_unicos)
+    # Salva leads
+    salvar_leads(leads_filtrados)
 
-    elapsed_time = time.time() - start_time  # ⏱️ Timer end
+    elapsed_time = time.time() - start_time
     minutos, segundos = divmod(int(elapsed_time), 60)
 
-    # Ranking das fontes
-    if ranking_fontes:
-        ranking_texto = "\n".join([f"{i + 1}️⃣ {fonte}: {qtd} leads" for i, (fonte, qtd) in enumerate(sorted(ranking_fontes.items(), key=lambda x: x[1], reverse=True))])
-    else:
-        ranking_texto = "Nenhuma fonte retornou leads."
+    # Prepara ranking das fontes
+    ranking_texto = "\n".join(
+        [f"{i+1}️⃣ {fonte}: {quantidade} leads" for i, (fonte, quantidade) in enumerate(
+            sorted(ranking_fontes.items(), key=lambda x: x[1], reverse=True)
+        )]
+    ) or "Nenhuma fonte retornou leads."
 
     # Mensagem final
     await bot.send_message(
         chat_id=chat_id,
         text=(
             "📝 Leads salvos no Google Sheets!\n"
-            f"💡 Total de {len(leads_unicos)} novos leads adicionados (de {len(leads_encontrados)} encontrados).\n\n"
-            f"🥇 Ranking das fontes:\n{ranking_texto}\n\n"
-            f"⏱️ Tempo total: {minutos} min {segundos} seg"
+            f"💡 Total de {len(leads_filtrados)} novos leads adicionados (de {len(leads_encontrados)} encontrados).\n\n"
+            f"⏱️ Tempo total: {minutos}m {segundos}s\n\n"
+            f"🥇 Ranking das fontes:\n{ranking_texto}"
         )
     )
-
-except Exception as e:
-    await bot.send_message(chat_id=chat_id, text=f"❌ Ocorreu um erro durante a busca de leads: {e}")
