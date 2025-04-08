@@ -25,6 +25,7 @@ async def report_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def leadhunter_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args:
         termos_busca = " ".join(context.args)
+        await update.message.reply_text(f"🔍 Iniciando busca de leads para: {termos_busca}")
         await leadhunter_handler(update.effective_chat.id, termos_busca)
     else:
         await update.message.reply_text("Por favor, informe o termo para buscar leads. Exemplo: /leads marketing digital São Paulo")
