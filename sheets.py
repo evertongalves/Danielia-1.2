@@ -97,3 +97,17 @@ def iniciar_prospeccao():
     termos_busca = 'barbearia são paulo'  # Pode colocar os termos que quiser para o teste
 
     asyncio.run(leadhunter_handler(chat_id, termos_busca))
+
+def carregar_leads_existentes():
+    gc = gspread.service_account(filename='credentials.json')
+    sh = gc.open(GOOGLE_SHEET_NAME)
+    worksheet = sh.sheet1
+    leads_existentes = worksheet.get_all_records()
+
+    # Convertemos em um set de tuplas para facilitar verificação de duplicados
+    leads_existentes_set = set()
+    for lead in leads_existentes:
+        chave = (lead.get('email', '').lower(), lead.get('telefone', '').replace(" ", "").replace("-", ""))
+        leads_existentes_set.add(chave)
+
+    return leads_existentes_set
