@@ -11,7 +11,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Posso te ajudar com várias tarefas:
 
 - 📊 /relatorio: Gerar relatório atualizado
-- 🤖 /leadhunter [termo]: Prospecção automatizada
+- 🤖 /leads [termo]: Prospecção automatizada
 - 💬 Respostas automáticas
 - 🔄 Atualização manual
 - ✅ Checklist automático
@@ -27,4 +27,4 @@ async def leadhunter_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         termos_busca = " ".join(context.args)
         await leadhunter_handler(update.effective_chat.id, termos_busca)
     else:
-        await update.message.reply_text("Por favor, informe o termo para buscar leads. Exemplo: /leadhunter marketing digital São Paulo")
+        await update.message.reply_text("Por favor, informe o termo para buscar leads. Exemplo: /leads marketing digital São Paulo")
