@@ -80,3 +80,18 @@ def gerar_relatorio():
 
     except Exception as e:
         print(f"❌ Erro ao gerar relatório: {e}")
+
+def carregar_leads_existentes(spreadsheet_id, sheet_name='Sheet1'):
+    """
+    Carrega os leads existentes da planilha do Google Sheets.
+    :param spreadsheet_id: ID da planilha do Google Sheets.
+    :param sheet_name: Nome da aba da planilha (padrão: 'Sheet1').
+    :return: Lista de dicionários com os dados dos leads existentes.
+    """
+    client = conectar_sheets()
+    sheet = client.open_by_key(spreadsheet_id).worksheet(sheet_name)
+
+    # Pega todas as linhas e transforma em dicionários
+    records = sheet.get_all_records()
+    return records
+
