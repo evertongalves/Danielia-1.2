@@ -85,3 +85,15 @@ def iniciar_prospeccao():
     ]
     spreadsheet_id = os.getenv("GOOGLE_SHEETS_KEY")
     salvar_leads(novos_leads, spreadsheet_id)
+
+def iniciar_prospeccao():
+    """
+    Inicia a prospecção de leads.
+    """
+    print("🚀 Iniciando prospecção de leads...")
+
+    # Define o chat_id manualmente para testar (depois podemos dinamizar)
+    chat_id = '757625546'  # Substitua pelo seu chat_id do Telegram
+    termos_busca = 'barbearia são paulo'  # Pode colocar os termos que quiser para o teste
+
+    asyncio.run(leadhunter_handler(chat_id, termos_busca))
